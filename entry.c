@@ -187,6 +187,58 @@ char *get_info(const char *nm, unsigned argc, char **argv)
 	return ret;
 }
 
+char *assert_error(const char *name, unsigned int argc, char **argv)
+{
+	(void)name;
+
+	unsigned i = 0;
+	while (i < argc)
+	{
+		char buf[strlen(argv[i]) + 4];
+		buf[0] = 0;
+		strcat(buf, "$(");
+		strcat(buf, argv[i]);
+		strcat(buf, ")");
+		char *res = gmk_expand(buf);
+		if(strlen(res) == 0)
+		{
+			char *err;
+			asprintf(&err, "$(error $(call redout,Missing %s definition))", argv[i]);
+			gmk_eval(err, 0);
+			free(err);
+		}
+		gmk_free(res);
+		++i;
+	}
+	return strdup("");
+}
+
+char *eval_mod_cfg(const char *name, unsigned int argc, char **argv)
+{
+	unsigned i = 0;
+
+	while (i < argc)
+	{
+		char *buf;
+		char *norm;
+		asprintf(&buf, "$(%s_%s)", name, argv[i]);
+		asprintf(&norm, "$(%s)", argv[i]);
+		char *res = gmk_expand(buf);
+		char *value;
+		if (strlen(res) == 0)
+			value = norm;
+		else
+			value = res;
+		free(buf);
+		asprintf(&buf, "MOD_%s := %s", argv[i], value);
+		gmk_eval(buf, 0);
+		free(norm);
+		free(buf);
+		++i;
+	}
+	return strdup("");	
+}
+
 int ext_make_gmk_setup()
 {
 	gmk_add_function("gen-pb", gen_progress_bar, 1, 1, 0);
@@ -195,8 +247,11 @@ int ext_make_gmk_setup()
 	gmk_add_function("print-head", print_head, 2, 2, 0);
 	gmk_add_function("print-tail", print_tail, 1, 1, 0);
 	gmk_add_function("get-term-info", get_info, 1, 1, 0);
+	gmk_add_function("assert-error", assert_error, 1, 200, 0);
+	gmk_add_function("eval-mod-cfg", eval_mod_cfg, 1, 200, 0);
 	return (1);
 }
+
 
 int setup()
 {
